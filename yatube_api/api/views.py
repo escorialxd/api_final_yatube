@@ -1,6 +1,5 @@
 from rest_framework import viewsets, mixins
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import IsAuthenticated, AllowAny, SAFE_METHODS
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import LimitOffsetPagination
 from posts.models import Post, Group, Follow
