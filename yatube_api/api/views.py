@@ -1,8 +1,7 @@
 from rest_framework import viewsets, mixins
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import LimitOffsetPagination
-from posts.models import Post, Group, Follow
+from posts.models import Post, Group
 from .serializers import (
     PostSerializer,
     GroupSerializer,
@@ -21,13 +20,9 @@ class PostViewSet(DynamicPermissionMixin, viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     def perform_update(self, serializer):
-        if self.get_object().author != self.request.user:
-            raise PermissionDenied('Изменение чужого контента запрещено!')
         serializer.save()
 
     def perform_destroy(self, instance):
-        if instance.author != self.request.user:
-            raise PermissionDenied('Удаление чужого контента запрещено!')
         instance.delete()
 
 
@@ -65,7 +60,7 @@ class FollowViewSet(
     search_fields = ['following__username']
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return self.request.user.follower.all()
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
