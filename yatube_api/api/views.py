@@ -1,6 +1,7 @@
 from rest_framework import viewsets, mixins
 from rest_framework.filters import SearchFilter
 from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.permissions import AllowAny, IsAuthenticated, SAFE_METHODS
 from posts.models import Post, Group
 from .serializers import (
     PostSerializer,
@@ -8,13 +9,18 @@ from .serializers import (
     CommentSerializer,
     FollowSerializer
 )
-from .mixins import DynamicPermissionMixin
+from .permissions import IsAuthorOrReadOnly
 
 
-class PostViewSet(DynamicPermissionMixin, viewsets.ModelViewSet):
+class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     pagination_class = LimitOffsetPagination
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAuthorOrReadOnly()]
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -26,12 +32,15 @@ class PostViewSet(DynamicPermissionMixin, viewsets.ModelViewSet):
         instance.delete()
 
 
-class GroupViewSet(DynamicPermissionMixin, viewsets.ReadOnlyModelViewSet):
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
 
+    def get_permissions(self):
+        return [AllowAny()]
 
-class CommentViewSet(DynamicPermissionMixin, viewsets.ModelViewSet):
+
+class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     lookup_url_kwarg = 'comment_id'
 
@@ -44,23 +53,29 @@ class CommentViewSet(DynamicPermissionMixin, viewsets.ModelViewSet):
         post = self.get_post()
         return post.comments.all()
 
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAuthorOrReadOnly()]
+
     def perform_create(self, serializer):
         serializer.save(author=self.request.user, post=self.get_post())
 
 
 class FollowViewSet(
-    DynamicPermissionMixin,
     mixins.ListModelMixin,
     mixins.CreateModelMixin,
     viewsets.GenericViewSet
 ):
-    enforce_auth_for_safe_methods = True
     serializer_class = FollowSerializer
     filter_backends = [SearchFilter]
     search_fields = ['following__username']
 
     def get_queryset(self):
         return self.request.user.follower.all()
+
+    def get_permissions(self):
+        return [IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
